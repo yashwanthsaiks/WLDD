@@ -1,8 +1,8 @@
 import { IceServer } from '../types';
 
 // Configure these values with your Metered credentials
-const METERED_DOMAIN = 'mockello.metered.live';
-const METERED_API_KEY = 'KPLj9+vH3VwzzbGl';
+const METERED_DOMAIN = '';
+const METERED_API_KEY = '';
 
 export async function fetchTurnCredentials(): Promise<IceServer[]> {
   const response = await fetch(

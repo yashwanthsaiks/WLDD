@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { JoinScreen } from './components/JoinScreen';
 import { VideoGrid } from './components/VideoGrid';
 import { Controls } from './components/Controls';
+import { ChatInput } from './components/ChatInput';
 import { useMediaStream } from './hooks/useMediaStream';
 import { useSignaling } from './hooks/useSignaling';
 import { useWebRTC } from './hooks/useWebRTC';
@@ -17,6 +18,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<
+    { id: string; from: string; text: string; timestamp: number; isLocal: boolean }[]
+  >([]);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   const peerIdRef = useRef(generatePeerId());
   const peerId = peerIdRef.current;
@@ -75,8 +80,33 @@ export default function App() {
           webrtc.handleIceCandidate(message.from, message.candidate);
         }
         break;
+
+      case 'chat':
+        if (message.message && message.from) {
+          // Skip adding message if it's from the local user (already added optimistically)
+          if (message.from === peerId) {
+            break;
+          }
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `${message.timestamp ?? Date.now()}-${message.from}`,
+              from: `Peer ${message.from.slice(0, 6)}`,
+              text: message.message,
+              timestamp: message.timestamp ?? Date.now(),
+              isLocal: false
+            }
+          ]);
+          // Auto-scroll to bottom when new message arrives
+          setTimeout(() => {
+            if (chatMessagesRef.current) {
+              chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+            }
+          }, 100);
+        }
+        break;
     }
-  }, []);
+  }, [peerId]);
 
   const signaling = useSignaling({
     onMessage: handleSignalingMessage,
@@ -133,9 +163,45 @@ export default function App() {
     webrtc.closeAllConnections();
     signaling.disconnect();
     stopMedia();
+    setMessages([]);
     setIsJoined(false);
     setRoomId(null);
   }, [webrtc, signaling, stopMedia]);
+
+  const handleSendMessage = useCallback(
+    (text: string) => {
+      if (!text.trim() || !roomId) return;
+
+      const timestamp = Date.now();
+
+      // Optimistic local update
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `${timestamp}-${peerId}-local`,
+          from: 'You',
+          text,
+          timestamp,
+          isLocal: true
+        }
+      ]);
+      // Auto-scroll to bottom when sending message
+      setTimeout(() => {
+        if (chatMessagesRef.current) {
+          chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+        }
+      }, 100);
+
+      signaling.send({
+        type: 'chat',
+        roomId,
+        peerId,
+        message: text,
+        timestamp
+      });
+    },
+    [roomId, peerId, signaling]
+  );
 
   if (!isJoined) {
     return (
@@ -156,20 +222,51 @@ export default function App() {
         </span>
       </div>
 
-      <VideoGrid
-        localStream={localStream}
-        localPeerId={peerId}
-        remotePeers={webrtc.remotePeers}
-        isAudioMuted={!isAudioEnabled}
-      />
+      <div className="call-layout">
+        <div className="call-main">
+          <VideoGrid
+            localStream={localStream}
+            localPeerId={peerId}
+            remotePeers={webrtc.remotePeers}
+            isAudioMuted={!isAudioEnabled}
+            isVideoEnabled={isVideoEnabled}
+          />
 
-      <Controls
-        isAudioEnabled={isAudioEnabled}
-        isVideoEnabled={isVideoEnabled}
-        onToggleAudio={toggleAudio}
-        onToggleVideo={toggleVideo}
-        onLeave={handleLeave}
-      />
+          <Controls
+            isAudioEnabled={isAudioEnabled}
+            isVideoEnabled={isVideoEnabled}
+            onToggleAudio={toggleAudio}
+            onToggleVideo={toggleVideo}
+            onLeave={handleLeave}
+          />
+        </div>
+
+        <aside className="chat-panel">
+          <div className="chat-header">
+            <h3>Room chat</h3>
+          </div>
+          <div className="chat-messages" ref={chatMessagesRef}>
+            {messages.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--green-muted)' }}>
+                <p>No messages yet. Start the conversation!</p>
+              </div>
+            ) : (
+              messages.map(msg => (
+                <div
+                  key={msg.id}
+                  className={`chat-message ${msg.isLocal ? 'local' : 'remote'}`}
+                >
+                  <div className="chat-meta">
+                    <span className="chat-from">{msg.from}</span>
+                  </div>
+                  <div className="chat-text">{msg.text}</div>
+                </div>
+              ))
+            )}
+          </div>
+          <ChatInput onSend={handleSendMessage} />
+        </aside>
+      </div>
     </div>
   );
 }

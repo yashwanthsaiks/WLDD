@@ -6,9 +6,10 @@ interface VideoGridProps {
   localPeerId: string;
   remotePeers: RemotePeer[];
   isAudioMuted: boolean;
+  isVideoEnabled: boolean;
 }
 
-export function VideoGrid({ localStream, localPeerId, remotePeers, isAudioMuted }: VideoGridProps) {
+export function VideoGrid({ localStream, localPeerId, remotePeers, isAudioMuted, isVideoEnabled }: VideoGridProps) {
   const totalParticipants = 1 + remotePeers.length;
 
   return (
@@ -18,6 +19,7 @@ export function VideoGrid({ localStream, localPeerId, remotePeers, isAudioMuted 
         peerId={localPeerId}
         isLocal={true}
         isMuted={isAudioMuted}
+        isVideoEnabled={isVideoEnabled}
       />
       {remotePeers.map((peer) => (
         <VideoTile

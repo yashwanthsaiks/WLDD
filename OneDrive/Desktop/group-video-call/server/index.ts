@@ -57,6 +57,21 @@ wss.on('connection', (ws: WebSocket) => {
           forwardToPeer(currentRoomId!, to, message);
           break;
         }
+
+        case 'chat': {
+          if (!currentRoomId || !currentPeerId) break;
+          const room = rooms.get(currentRoomId);
+          if (!room) break;
+
+          // Broadcast chat message to everyone in the room
+          broadcast(currentRoomId, {
+            type: 'chat',
+            from: currentPeerId,
+            message: message.message,
+            timestamp: message.timestamp ?? Date.now()
+          });
+          break;
+        }
       }
     } catch (error) {
       console.error('Error processing message:', error);

@@ -1,5 +1,13 @@
 export interface SignalingMessage {
-  type: 'join' | 'peer-joined' | 'peer-left' | 'room-peers' | 'offer' | 'answer' | 'ice-candidate';
+  type:
+    | 'join'
+    | 'peer-joined'
+    | 'peer-left'
+    | 'room-peers'
+    | 'offer'
+    | 'answer'
+    | 'ice-candidate'
+    | 'chat';
   peerId?: string;
   roomId?: string;
   from?: string;
@@ -7,6 +15,8 @@ export interface SignalingMessage {
   sdp?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
   peers?: string[];
+  message?: string;
+  timestamp?: number;
 }
 
 export interface RemotePeer {
